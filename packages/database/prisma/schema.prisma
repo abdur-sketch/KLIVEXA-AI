@@ -1,0 +1,308 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum ProjectStatus {
+  DRAFT
+  IMPORTING
+  ANALYZING
+  READY
+  RENDERING
+  COMPLETED
+  FAILED
+}
+
+enum JobStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum Platform {
+  YOUTUBE
+  INSTAGRAM
+  TIKTOK
+}
+
+enum MediaSourceType {
+  UPLOAD
+  YOUTUBE
+}
+
+enum MediaStatus {
+  QUEUED
+  PROCESSING
+  READY
+  FAILED
+}
+
+enum MediaJobKind {
+  PROBE_UPLOAD
+  FETCH_YOUTUBE_METADATA
+}
+
+model User {
+  id             String          @id @default(cuid())
+  email          String          @unique
+  name           String?
+  passwordHash   String
+  role           UserRole        @default(USER)
+  isActive       Boolean         @default(true)
+  projects       Project[]
+  sessions       Session[]
+  brandKits      BrandKit[]
+  socialAccounts SocialAccount[]
+  auditLogs      AuditLog[]
+  mediaAssets    MediaAsset[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+}
+
+model Project {
+  id          String        @id @default(cuid())
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  description String?       @db.Text
+  status      ProjectStatus @default(DRAFT)
+  archivedAt  DateTime?
+  deletedAt   DateTime?
+  sourceVideo SourceVideo?
+  clips       Clip[]
+  mediaAssets MediaAsset[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([userId, deletedAt, updatedAt])
+}
+
+model MediaAsset {
+  id                 String               @id @default(cuid())
+  userId             String
+  user               User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId          String
+  project            Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sourceType         MediaSourceType
+  status             MediaStatus          @default(QUEUED)
+  title              String?
+  originalName       String?
+  storageKey         String?              @unique
+  thumbnailKey       String?              @unique
+  remoteThumbnailUrl String?
+  mimeType           String?
+  sizeBytes          BigInt?
+  sha256             String?
+  sourceUrl          String?
+  youtubeVideoId     String?
+  durationMs         Int?
+  width              Int?
+  height             Int?
+  videoCodec         String?
+  audioCodec         String?
+  error              String?              @db.Text
+  idempotencyKey     String?
+  deletedAt          DateTime?
+  jobs               MediaProcessingJob[]
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  @@unique([userId, idempotencyKey])
+  @@index([userId, deletedAt, createdAt])
+  @@index([projectId, deletedAt, createdAt])
+  @@index([youtubeVideoId])
+}
+
+model MediaProcessingJob {
+  id           String       @id @default(cuid())
+  mediaAssetId String
+  mediaAsset   MediaAsset   @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+  bullJobId    String?      @unique
+  kind         MediaJobKind
+  status       JobStatus    @default(QUEUED)
+  progress     Int          @default(0)
+  attempts     Int          @default(0)
+  error        String?      @db.Text
+  startedAt    DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([mediaAssetId, createdAt])
+  @@index([status, createdAt])
+}
+
+model Session {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  lastSeenAt DateTime  @default(now())
+  revokedAt  DateTime?
+  userAgent  String?
+  ipHash     String?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId, expiresAt])
+  @@index([expiresAt, revokedAt])
+}
+
+model SourceVideo {
+  id              String          @id @default(cuid())
+  projectId       String          @unique
+  project         Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sourceUrl       String?
+  localPath       String?
+  title           String?
+  durationSeconds Int?
+  rightsConfirmed Boolean         @default(false)
+  transcript      Transcript?
+  candidates      ClipCandidate[]
+  createdAt       DateTime        @default(now())
+}
+
+model Transcript {
+  id            String              @id @default(cuid())
+  sourceVideoId String              @unique
+  sourceVideo   SourceVideo         @relation(fields: [sourceVideoId], references: [id], onDelete: Cascade)
+  language      String
+  fullText      String              @db.Text
+  segments      TranscriptSegment[]
+  createdAt     DateTime            @default(now())
+}
+
+model TranscriptSegment {
+  id           String     @id @default(cuid())
+  transcriptId String
+  transcript   Transcript @relation(fields: [transcriptId], references: [id], onDelete: Cascade)
+  text         String
+  startMs      Int
+  endMs        Int
+  confidence   Float?
+
+  @@index([transcriptId, startMs])
+}
+
+model ClipCandidate {
+  id            String      @id @default(cuid())
+  sourceVideoId String
+  sourceVideo   SourceVideo @relation(fields: [sourceVideoId], references: [id], onDelete: Cascade)
+  title         String
+  startMs       Int
+  endMs         Int
+  score         Float
+  rationale     String?
+  createdAt     DateTime    @default(now())
+}
+
+model Clip {
+  id          String       @id @default(cuid())
+  projectId   String
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title       String
+  startMs     Int
+  endMs       Int
+  edits       ClipEdit[]
+  renderJobs  RenderJob[]
+  publishJobs PublishJob[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([projectId, createdAt])
+}
+
+model ClipEdit {
+  id          String   @id @default(cuid())
+  clipId      String
+  clip        Clip     @relation(fields: [clipId], references: [id], onDelete: Cascade)
+  version     Int
+  settings    Json
+  subtitleAss String?  @db.Text
+  createdAt   DateTime @default(now())
+
+  @@unique([clipId, version])
+}
+
+model RenderJob {
+  id         String    @id @default(cuid())
+  clipId     String
+  clip       Clip      @relation(fields: [clipId], references: [id], onDelete: Cascade)
+  status     JobStatus @default(QUEUED)
+  progress   Int       @default(0)
+  outputPath String?
+  error      String?   @db.Text
+  attempts   Int       @default(0)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+model CaptionPreset {
+  id        String   @id @default(cuid())
+  name      String
+  settings  Json
+  isSystem  Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model BrandKit {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  logoPath  String?
+  colors    Json
+  fonts     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SocialAccount {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform       Platform
+  externalId     String
+  encryptedToken String   @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([userId, platform, externalId])
+}
+
+model PublishJob {
+  id          String    @id @default(cuid())
+  clipId      String
+  clip        Clip      @relation(fields: [clipId], references: [id], onDelete: Cascade)
+  platform    Platform
+  status      JobStatus @default(QUEUED)
+  externalId  String?
+  error       String?   @db.Text
+  scheduledAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action     String
+  resource   String
+  resourceId String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([userId, createdAt])
+}

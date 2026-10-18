@@ -1,0 +1,15 @@
+{
+  "name": "@klivexa/database",
+  "version": "0.1.0",
+  "private": true,
+  "main": "src/index.ts",
+  "dependencies": {
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
+    "pg": "8.23.1"
+  },
+  "devDependencies": {
+    "@types/pg": "8.15.6",
+    "typescript": "5.9.3"
+  }
+}

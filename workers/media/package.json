@@ -1,0 +1,22 @@
+{
+  "name": "@klivexa/media-worker",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "start": "tsx --env-file=../../.env src/worker.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@klivexa/database": "*",
+    "@klivexa/queue": "*",
+    "@prisma/adapter-pg": "7.10.1",
+    "bullmq": "6.3.16",
+    "pg": "8.23.1"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "@types/pg": "8.15.6",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3"
+  }
+}

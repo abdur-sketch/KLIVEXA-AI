@@ -1,0 +1,28 @@
+{
+  "name": "klivexa-ai",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": ["apps/*", "packages/*", "workers/*"],
+  "scripts": {
+    "dev": "npm run dev --workspace @klivexa/web",
+    "build": "npm run build --workspace @klivexa/web",
+    "lint": "npm run lint --workspace @klivexa/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspace @klivexa/web",
+    "db:generate": "prisma generate --schema packages/database/prisma/schema.prisma",
+    "db:migrate": "prisma migrate dev --schema packages/database/prisma/schema.prisma",
+    "db:deploy": "prisma migrate deploy --schema packages/database/prisma/schema.prisma",
+    "db:seed": "tsx packages/database/prisma/seed.ts",
+    "db:studio": "prisma studio --schema packages/database/prisma/schema.prisma",
+    "test:e2e": "npm run test:e2e --workspace @klivexa/web",
+    "worker:media": "npm run start --workspace @klivexa/media-worker",
+    "services:setup": "./scripts/setup-local-services.sh",
+    "services:check": "./scripts/check-local-services.sh"
+  },
+  "devDependencies": {
+    "dotenv": "18.0.8",
+    "tsx": "4.23.15",
+    "prisma": "7.10.1"
+  },
+  "engines": { "node": ">=22" }
+}
